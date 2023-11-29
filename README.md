@@ -27,7 +27,6 @@ blmrdata download perplexity-models --output-folder path/to/model/download/folde
 
 ```python
 
-#src/blmrdata/utils/ccnet/perplexity.py
 from blmrdata.utils.ccnet.perplexity import Perplexity
 
 pp_compute = Perplexity(
