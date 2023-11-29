@@ -1,8 +1,7 @@
 import sys
 import click
 from loguru import logger
-from blmrdata._cli.cmd_group1.group1 import cli_group1
-from blmrdata._cli.cmd2 import cli_group2_cmd2
+from blmrdata._cli.utils.download import cli_download
 
 
 @click.group()
@@ -13,9 +12,7 @@ def cli(debug):
         logger.add(sys.stderr, level="INFO")
 
 
-cli.add_command(cli_group1)
-cli.add_command(cli_group2_cmd2)
-
+cli.add_command(cli_download)
 
 if __name__ == "__main__":
     cli()

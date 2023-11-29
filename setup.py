@@ -12,7 +12,8 @@ install_requires = [
     "jsonlines",
     "loguru",
     "click",
-    ""
+    "sentencepiece>=0.1.82",
+    "kenlm @ git+https://github.com/kpu/kenlm.git@master",
 ]
 
 dependency_links = []
@@ -35,7 +36,7 @@ setup_kwargs = {
     "install_requires": install_requires,
     "entry_points": entry_points,
     "dependency_links": dependency_links,
-    "python_requires": ">=3.9",
+    "python_requires": ">=3.8",
 }
 
 
