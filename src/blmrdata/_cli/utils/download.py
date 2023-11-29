@@ -1,10 +1,9 @@
 # -*- coding: utf-8 -*-
-""" Example of a command line interface for a group of commands
+""" Download resources to compile the dataset
 
-@Author: Evan Dufraisse
 @Date: Tue May 23 2023
-@Contact: evan[dot]dufraisse[at]cea[dot]fr
-@License: Copyright (c) 2023 CEA - LASTI
+@Contact: contact@openllm-france.fr
+@License: MIT License
 """
 import click
 from loguru import logger

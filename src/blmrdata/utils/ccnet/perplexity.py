@@ -1,9 +1,8 @@
 # -*- coding: utf-8 -*-
 """ Dowload and use CCNET models for perplexity estimation
 
-@Author: Evan Dufraisse
 @Date: Wed Nov 29 2023
-@Contact: e[dot]dufraisse[at]gmail[dot]com
+@Contact: contact@openllm-france.fr
 @License: MIT License
 """
 import os

@@ -3,9 +3,8 @@
 
 from repository: https://github.com/facebookresearch/cc_net/cc_net/perplexity.py
 
-@Author: Evan Dufraisse
 @Date: Thu Nov 30 2023
-@Contact: e[dot]dufraisse[at]gmail[dot]com
+@Contact: contact@openllm-france.fr
 @License: MIT License
 """
 
