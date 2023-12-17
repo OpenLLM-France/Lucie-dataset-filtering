@@ -1,13 +1,13 @@
-# Bloom-ng-dataset-processing - Data processing scripts Bloomer-7B
+# Bloom-ng-dataset-processing - Data processing scripts Bloom-ng-7B
 
-Code to compile and process data from Bloomer-7B experiment
+Code to compile and process data from Bloom-ng-7B experiment
 
 ## Installation
 
 requirements: python 3.8+
 
 ```bash
-cd Bloomer-dataset-processing
+cd Bloom-ng-dataset-processing
 pip install -e ./
 ```
 
