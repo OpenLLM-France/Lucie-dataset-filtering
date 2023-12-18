@@ -130,7 +130,7 @@ class DatasetProcessor(object):
                         ("Process", doc, uri_id, idx_line)
                     )
                 processing_queues[smallest_queue_index].put(("Close", None, uri_id, idx_line))
-                while processing_queues[smallest_queue_index].qsize() > 1000:
+                while processing_queues[smallest_queue_index].qsize() > 1000 and writer_queue.qsize() > 10000:
                     time.sleep(1)
         for q in processing_queues:
             q.put(("STOP", None, None, None))
