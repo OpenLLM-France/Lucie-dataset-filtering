@@ -73,6 +73,8 @@ class Perplexity:
         """
         tokenized = self.sp(text)["tokenized"]
         lines = tokenized.split("\n")
+        doc_log_score = 0
+        doc_length = 0
         for line in lines:
             if normalize:
                 line = text_normalizer.normalize(line)
