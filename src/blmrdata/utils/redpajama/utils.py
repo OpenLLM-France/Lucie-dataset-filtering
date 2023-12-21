@@ -39,3 +39,26 @@ def create_blacklist_ut1_domain_to_category(
                 domain_to_category_id[line.strip()] = os.path.basename(folder)
     with open(os.path.join(path_ut1, "domain_to_category_id.json"), "w") as fout:
         json.dump(domain_to_category_id, fout)
+
+
+class BatchWriter:
+    def __init__(self, writer, max_size=1024):
+        self.writer = writer
+        self.max_size = max_size
+        self.batch = []
+        self.batch_id = 0
+
+    def write(self, item):
+        self.batch.append(item)
+        if len(self.batch) >= self.max_size:
+            self.flush()
+
+    def flush(self):
+        for item in self.batch:
+            self.writer.write(item)
+        self.batch = []
+        self.batch_id += 1
+
+    def close(self):
+        self.flush()
+        self.writer.close()

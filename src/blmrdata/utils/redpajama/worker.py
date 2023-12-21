@@ -34,6 +34,8 @@ from ast import literal_eval
 import time
 import re
 
+from blmrdata.utils.redpajama.utils import BatchWriter
+
 _BYTE_ORDER = sys.byteorder
 
 
@@ -49,6 +51,9 @@ class DatasetProcessor(object):
         default_fields: str,
         fields_to_keep: str,
         n_processes: int = 1,
+        flust_freq: int = 1000,
+        minhash_similarities: str = "[1.0, 0.9, 0.8, 0.7]",
+        size_shard: int = 1,
     ):
         self.path_fasttext_model = path_fasttext_model
         self.path_perplexity_models = path_perplexity_models
@@ -59,6 +64,9 @@ class DatasetProcessor(object):
         self.mapping_fields = literal_eval(mapping_fields)
         self.default_fields = literal_eval(default_fields)
         self.fields_to_keep = literal_eval(fields_to_keep)
+        self.flush_freq = flust_freq
+        self.minhash_similarities = literal_eval(minhash_similarities)
+        self.size_shard = size_shard
 
     @staticmethod
     def get_files_of_interest(root_path: Path, regex_pattern: str = ".*.jsonl.gz"):
@@ -88,9 +96,14 @@ class DatasetProcessor(object):
         manager = mp.Manager()
         writer_queue = manager.Queue()
         # Start writer process
-        minhash_similarities = [1.0, 0.9, 0.8, 0.7]
         writer_process = mp.Process(
-            target=writer, args=(writer_queue, path_output, minhash_similarities)
+            target=writer,
+            args=(
+                writer_queue,
+                path_output,
+                self.flush_freq,
+                self.minhash_similarities,
+            ),
         )
         writer_process.start()
         processing_queues = [mp.Queue() for _ in range(self.n_processes)]
@@ -109,7 +122,7 @@ class DatasetProcessor(object):
                     self.mapping_fields,
                     self.default_fields,
                     self.fields_to_keep,
-                    minhash_similarities,
+                    self.minhash_similarities,
                 ),
             )
             for i in range(self.n_processes)
@@ -123,14 +136,29 @@ class DatasetProcessor(object):
             uri_id = file.split(path_dataset)[1]
             with xopen(file, "rt") as fin:
                 for idx_line, line in tqdm(enumerate(fin)):
+                    if self.size_shard == -1:
+                        idx_shard = "0000"
+                    else:
+                        idx_shard = idx_line // self.size_shard
+                        idx_shard = str(idx_shard).zfill(4)
+
                     doc = json.loads(line)
-                    #argmin to get the queue with the smallest size
-                    smallest_queue_index = min(range(len(processing_queues)), key=lambda i: processing_queues[i].qsize())
+                    doc["idx_shard"] = idx_shard
+                    # argmin to get the queue with the smallest size
+                    smallest_queue_index = min(
+                        range(len(processing_queues)),
+                        key=lambda i: processing_queues[i].qsize(),
+                    )
                     processing_queues[smallest_queue_index].put(
                         ("Process", doc, uri_id, idx_line)
                     )
-                processing_queues[smallest_queue_index].put(("Close", None, uri_id, idx_line))
-                while processing_queues[smallest_queue_index].qsize() > 1000 and writer_queue.qsize() > 10000:
+                processing_queues[smallest_queue_index].put(
+                    ("Close", None, uri_id, idx_line)
+                )
+                while (
+                    processing_queues[smallest_queue_index].qsize() > 1000
+                    and writer_queue.qsize() > 10000
+                ):
                     time.sleep(1)
         for q in processing_queues:
             q.put(("STOP", None, None, None))
@@ -142,28 +170,69 @@ class DatasetProcessor(object):
         return
 
 
-def open_jsonl_gz(uri_id, output_folder):
-    path_gz = os.path.join(output_folder, "data", uri_id.split(".")[0].strip("/") + ".jsonl.gz")
+def open_quality_signals_jsonl_gz(uri_id, output_folder):
+    return open_jsonl_gz(
+        uri_id=uri_id,
+        subfolder="quality_signals",
+        output_folder=output_folder,
+        extension=".signals.jsonl.gz",
+    )
+
+
+def open_documents_jsonl_gz(uri_id, output_folder):
+    return open_jsonl_gz(
+        uri_id=uri_id, subfolder="documents", output_folder=output_folder
+    )
+
+
+def open_jsonl_gz(uri_id, subfolder, output_folder, extension=".json.gz"):
+    path_gz = os.path.join(
+        output_folder, subfolder, uri_id.split(".")[0].strip("/") + extension
+    )
     return gzip.open(
         path_gz,
         "wt",
     )
 
 
-def open_parquet(uri_id, output_folder, minhash_schema):
+def open_minhash_parquet(uri_id, output_folder, minhash_schema):
     return ParquetBatchWriter(
         output_fp=os.path.join(
-            output_folder, "minhashes", uri_id.split(".")[0].strip("/") + ".parquet"
+            output_folder,
+            "minhash",
+            uri_id.split(".")[0].strip("/") + ".minhash.parquet",
         ),
         schema=minhash_schema,
     )
 
 
-def writer(writer_queue, output_folder, minhash_similarities=[1.0, 0.9, 0.8, 0.7]):
-    os.makedirs(os.path.join(output_folder, "data"), exist_ok=True)
-    os.makedirs(os.path.join(output_folder, "minhashes"), exist_ok=True)
-    opened_parquet = {}
-    opened_jsonl_gz = {}
+def get_bucket_output_filename(uri_id, bucket):
+    splitted_uri = uri_id.split(".")
+    main_name = splitted_uri[0]
+    new_name = main_name + "_" + bucket
+    return new_name + "." + ".".join(splitted_uri[1:])
+
+
+def get_all_buckets_output_filename(uri_id):
+    all_bucket_outputs = {}
+    for bucket in ["tail", "middle", "head"]:
+        all_bucket_outputs[bucket] = get_bucket_output_filename(uri_id, bucket)
+    return all_bucket_outputs
+
+
+def writer(
+    writer_queue,
+    output_folder,
+    flush_freq=1000,
+    minhash_similarities=[1.0, 0.9, 0.8, 0.7],
+):
+    """Writer process, writes minhash to parquet file and quality signals to jsonl.gz respecting format of orginal redpajama dataset"""
+    os.makedirs(os.path.join(output_folder, "documents"), exist_ok=True)
+    os.makedirs(os.path.join(output_folder, "minhash"), exist_ok=True)
+    os.makedirs(os.path.join(output_folder, "quality_signals"), exist_ok=True)
+    opened_minhash_parquet = {}
+    opened_quality_signals_jsonl_gz = {}
+    opened_documents_jsonl_gz = {}
     minhash_schema = pa.schema(
         [
             ("shard_id", pa.string()),
@@ -175,7 +244,6 @@ def writer(writer_queue, output_folder, minhash_similarities=[1.0, 0.9, 0.8, 0.7
             ],
         ]
     )
-    counter = 0
     while True:
         value = writer_queue.get()
         if value is None:
@@ -185,40 +253,74 @@ def writer(writer_queue, output_folder, minhash_similarities=[1.0, 0.9, 0.8, 0.7
             action, record, minhashes = value
 
         if action == "STOP":
-            for uri_id in opened_parquet:
-                opened_parquet[uri_id].write_batch()
-                opened_parquet[uri_id].close()
-            for uri_id in opened_jsonl_gz:
-                opened_jsonl_gz[uri_id].close()
+            for uri_id in opened_minhash_parquet:
+                opened_minhash_parquet[uri_id].write_batch()
+                opened_minhash_parquet[uri_id].close()
+            for uri_id in opened_quality_signals_jsonl_gz:
+                opened_quality_signals_jsonl_gz[uri_id].close()
+            for uri_id in opened_documents_jsonl_gz:
+                opened_documents_jsonl_gz[uri_id].close()
             return
         elif action == "Close":
             uri_id = record
-            if uri_id in opened_parquet:
-                opened_parquet[uri_id].write_batch()
-                opened_parquet[uri_id].close()
+            if uri_id in opened_minhash_parquet:
+                opened_minhash_parquet[uri_id].write_batch()
+                opened_minhash_parquet[uri_id].close()
                 counter = 0
-                del opened_parquet[uri_id]
-            if uri_id in opened_jsonl_gz:
-                opened_jsonl_gz[uri_id].close()
-                del opened_jsonl_gz[uri_id]
+                del opened_minhash_parquet[uri_id]
+            if uri_id in opened_quality_signals_jsonl_gz:
+                opened_quality_signals_jsonl_gz[uri_id].close()
+                del opened_quality_signals_jsonl_gz[uri_id]
+            if uri_id in opened_documents_jsonl_gz:
+                opened_documents_jsonl_gz[uri_id].close()
+                del opened_documents_jsonl_gz[uri_id]
         else:
             uri_id = record["uri_id"]
-            if uri_id not in opened_parquet:
-                opened_parquet[uri_id] = open_parquet(uri_id, output_folder, minhash_schema)
-            if uri_id not in opened_jsonl_gz:
-                opened_jsonl_gz[uri_id] = open_jsonl_gz(uri_id, output_folder)
-            opened_parquet[uri_id].update_batch(
+            idx_shard = record["idx_shard"]
+            bucket = record["documents"]["bucket"]
+            all_buckets_uri = get_all_buckets_output_filename(uri_id)
+            if uri_id not in opened_minhash_parquet:
+                opened_minhash_parquet[uri_id] = {}
+                for bucket, b_uri_id in all_buckets_uri.items():
+                    opened_minhash_parquet[uri_id][bucket] = open_minhash_parquet(
+                        os.path.join(idx_shard, b_uri_id.strip("/")),
+                        output_folder,
+                        minhash_schema,
+                    )
+            if uri_id not in opened_quality_signals_jsonl_gz:
+                opened_quality_signals_jsonl_gz[uri_id] = {}
+                for bucket, b_uri_id in all_buckets_uri.items():
+                    opened_quality_signals_jsonl_gz[uri_id][bucket] = BatchWriter(
+                        open_quality_signals_jsonl_gz(
+                            os.path.join(idx_shard, b_uri_id.strip("/")), output_folder
+                        ),
+                        max_size=flush_freq,
+                    )
+            if uri_id not in opened_documents_jsonl_gz:
+                opened_documents_jsonl_gz[uri_id] = {}
+                for bucket, b_uri_id in all_buckets_uri.items():
+                    opened_documents_jsonl_gz[uri_id][bucket] = BatchWriter(
+                        open_documents_jsonl_gz(
+                            os.path.join(idx_shard, b_uri_id.strip("/")), output_folder
+                        ),
+                        max_size=flush_freq,
+                    )
+            opened_minhash_parquet[uri_id][bucket].update_batch(
                 obj={
-                    "shard_id": uri_id,
+                    "shard_id": os.path.join(idx_shard, uri_id.strip("/")),
                     "id_int": record["doc_id_int"],
                     "id": record["doc_id"],
                     **minhashes,
                 }
             )
-            if counter % 1000 == 0:
-                opened_parquet[uri_id].write_batch()
-                counter = 0
-            opened_jsonl_gz[uri_id].write(json.dumps(record) + "\n")
+            if len(opened_minhash_parquet[uri_id][bucket]) >= flush_freq:
+                opened_minhash_parquet[uri_id][bucket].write_batch()
+            opened_quality_signals_jsonl_gz[uri_id][bucket].write(
+                json.dumps({**record["meta"], **record["quality_signals"]}) + "\n"
+            )
+            opened_documents_jsonl_gz[uri_id][bucket].write(
+                json.dumps({**record["meta"], **record["documents"]}) + "\n"
+            )
 
 
 def compute_sha1_hash(text):
@@ -281,7 +383,12 @@ def worker(
         elif action == "Close":
             writer_queue.put(("Close", uri_id, None))
         else:
-            final_record = {"quality_signals": {}, "other": {}, "meta": {}}
+            final_record = {
+                "documents": {},
+                "quality_signals": {},
+                "other": {},
+                "meta": {},
+            }
             final_record["raw_content"] = doc[mapping_fields["raw_content"]]
             if "source_domain" in mapping_fields:
                 final_record["meta"]["source_domain"] = doc[
@@ -321,32 +428,48 @@ def worker(
                     len(final_record["raw_content"].split("\n")),
                 ]
             ]
+            final_record["documents"]["nlines"] = final_record["quality_signals"][
+                "ccnet_nlines"
+            ][0][-1]
+            final_record["documents"]["length"] = final_record["quality_signals"][
+                "ccnet_length"
+            ][0][-1]
+
             detected_language, language_score = fasttext_model.predict_lang(
                 final_record["raw_content"]
             )
+            final_record["documents"]["language_score"] = language_score
             if detected_language != language:
                 continue
             final_record["quality_signals"]["ccnet_language_score"] = [
                 [0, document_length, round(language_score, 4)]
             ]
 
+            final_record["documents"]["perplexity"] = perplexity_model(
+                final_record["raw_content"]
+            )
+
             final_record["quality_signals"]["ccnet_perplexity"] = [
-                [0, document_length, perplexity_model(final_record["raw_content"])]
+                [0, document_length, final_record["documents"]["perplexity"]]
             ]
 
             if (
                 final_record["quality_signals"]["ccnet_perplexity"][0][-1]
                 > cut_offs["tail_middle"]
             ):
-                final_record["quality_signals"]["bucket"] = "tail"
+                final_record["documents"]["bucket"] = "tail"
+
             elif (
                 final_record["quality_signals"]["ccnet_perplexity"][0][-1]
                 > cut_offs["middle_head"]
             ):
-                final_record["quality_signals"]["bucket"] = "middle"
+                final_record["documents"]["bucket"] = "middle"
             else:
-                final_record["quality_signals"]["bucket"] = "head"
+                final_record["documents"]["bucket"] = "head"
 
+            final_record["quality_signals"]["bucket"] = final_record["documents"][
+                "bucket"
+            ]
             dsir_buckets = _ccnet_bucket_to_int(
                 final_record["quality_signals"]["bucket"]
             )
@@ -380,6 +503,7 @@ def worker(
             final_record["idx"] = idx
             final_record["doc_id"] = doc_id
             final_record["doc_id_int"] = doc_id_int
+            final_record["idx_shard"] = doc["idx_shard"]
             for field in fields_to_keep:
                 final_record["other"][field] = doc[field]
             writer_queue.put(("Process", final_record, minhashes))
@@ -447,6 +571,24 @@ if __name__ == "__main__":
         type=int,
         help="Number of processes",
     )
+    parser.add_argument(
+        "--flush-freq",
+        type=int,
+        default=1000,
+        help="Number of documents to process before flushing to disk",
+    )
+    parser.add_argument(
+        "--minhash-similarities",
+        type=str,
+        default="[1.0, 0.9, 0.8, 0.7]",
+        help="Minhash similarities",
+    )
+    parser.add_argument(
+        "--size-shard",
+        type=int,
+        default=-1,
+        help="Max size of a shard, default no limit (i.e. 1 shard)",
+    )
     args = parser.parse_args()
 
     dataset_processor = DatasetProcessor(
@@ -459,6 +601,9 @@ if __name__ == "__main__":
         default_fields=args.default_fields,
         fields_to_keep=args.fields_to_keep,
         n_processes=args.n_processes,
+        flust_freq=args.flush_freq,
+        minhash_similarities=args.minhash_similarities,
+        size_shard=args.size_shard,
     )
 
     dataset_processor.process_dataset(
