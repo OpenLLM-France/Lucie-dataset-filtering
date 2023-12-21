@@ -4,7 +4,8 @@
 
 eval "$(conda shell.bash hook)"
 
-conda activate <your conda env> # or source [...]/bin/activate if using venv
+NAME_ENV="/scratch/envs/conda/redpajama"
+conda activate $NAME_ENV # or source [...]/bin/activate if using venv
 
 # mapping_fields can take the following values:
 # - 'url' : url of the page
@@ -16,7 +17,7 @@ conda activate <your conda env> # or source [...]/bin/activate if using venv
 # default_fields allows to set default value for fields of all pages, example:
 # - 'source_domain' : for instance here the domain name (i.e. legifrance.gouv.fr)
 
-DIR_ASSETS=/data/openllm/assets
+DIR_ASSETS=/data/assets
 DIR_DATASET=/scratch/openllm/data/LEGI
 DIR_OUTPUT=/scratch/openllm/data/LEGI_processed
 
