@@ -59,6 +59,9 @@ class BatchWriter:
         self.batch = []
         self.batch_id += 1
 
+    def __len__(self):
+        return len(self.batch)
+
     def close(self):
         self.flush()
         self.writer.close()
