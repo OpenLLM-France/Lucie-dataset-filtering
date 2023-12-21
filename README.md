@@ -11,7 +11,7 @@ Code to compile and process data from Bloom-ng-7B experiment
 
 ## Installation
 
-Installation requires a involves version of RedPajama code: [here](https://github.com/EvanDufraisse/RedPajamaV2-Utils.git)
+Installation involves a modified version of packaged RedPajama code, automatically cloned upon install and available [here](https://github.com/EvanDufraisse/RedPajamaV2-Utils.git)
 requirements: python 3.8+
 
 ```bash
