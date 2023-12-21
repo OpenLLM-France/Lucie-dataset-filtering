@@ -3,7 +3,7 @@
 Code to process english and french datasets using ccnet and gopher, refineweb and redpajamaV2 metrics.
 
 
-## TODO
+## Note: todo
 
 - Near-deduplication is not implemented yet, minhashes are computed though.
 
