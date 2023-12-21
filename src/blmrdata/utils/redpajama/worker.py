@@ -356,7 +356,7 @@ def writer(
                 + "\n"
             )
             opened_documents_jsonl_gz[uri_id][bucket].write(
-                json.dumps({**record["meta"], **record["documents"]}) + "\n"
+                json.dumps({**identifiers, **record["meta"], **record["documents"]}) + "\n"
             )
 
 
