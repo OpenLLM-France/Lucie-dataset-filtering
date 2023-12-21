@@ -2,22 +2,32 @@
 
 # This script is used to launch the processing of the LEGI data
 
-# Load conda
-
 eval "$(conda shell.bash hook)"
 
-conda activate /scratch/envs/conda/redpajama
+conda activate <your conda env> # or source [...]/bin/activate if using venv
 
-# 'url' possible pour mapping_fields as well as 'title'
+# mapping_fields can take the following values:
+# - 'url' : url of the page
+# - 'title' : title of the page
+# - 'raw_content' : text of the page
+# - 'date_download' : download date of the page
+# - 'source_domain' : domain name of the page
+
+# default_fields allows to set default value for fields of all pages, example:
+# - 'source_domain' : for instance here the domain name (i.e. legifrance.gouv.fr)
+
+DIR_ASSETS=/data/openllm/assets
+DIR_DATASET=/scratch/openllm/data/LEGI
+DIR_OUTPUT=/scratch/openllm/data/LEGI_processed
 
 python ${CODE_DIR}/Bloom-ng-dataset-processing/src/blmrdata/utils/redpajama/worker.py \
---dir_dataset /scratch/openllm/data/LEGI \
---dir_output /scratch/openllm/data/LEGI_processed \
---path_fasttext_model /scratch/openllm/data/lid.176.bin \
---dir_perplexity_models /data/openllm/ccnet_models/cc_net/data/lm_sp \
---dir_words_filter /scratch/openllm/data/ldnoobw \
---dir_domain_filter /scratch/openllm/data/ut1 \
---path_cut_offs /scratch/openllm/data/cut_offs.json \
+--dir_dataset $DIR_DATASET \
+--dir_output $DIR_OUTPUT \
+--path_fasttext_model ${DIR_ASSETS}/fasttext/lid.176.bin \
+--dir_perplexity_models ${DIR_ASSETS}/ccnet_models \
+--dir_words_filter ${DIR_ASSETS}/ldnoobw \
+--dir_domain_filter ${DIR_ASSETS}/ut1 \
+--path_cut_offs ${DIR_ASSETS}/cut_offs.json \
 --mapping_fields '{"raw_content": "text", "date_download": "date"}' \
 --default_fields '{"source_domain": "legifrance.gouv.fr"}' \
 --fields_to_keep '["id"]' \
