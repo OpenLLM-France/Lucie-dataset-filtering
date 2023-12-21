@@ -100,6 +100,11 @@ python ${CODE_DIR}/Bloom-ng-dataset-processing/src/blmrdata/utils/redpajama/exac
 
 % TODO
 
+### 4 - Filtering
+
+You can filter by implementing your own filter functions based on quality signals.
+An example of the gopher filter is provided in RedPajamaV2 dataset's description on huggingface https://huggingface.co/datasets/togethercomputer/RedPajama-Data-V2.
+
 ## License
 
 [MIT](https://choosealicense.com/licenses/mit/)
