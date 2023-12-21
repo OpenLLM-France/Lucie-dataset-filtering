@@ -63,6 +63,17 @@ python ${CODE_DIR}/Bloom-ng-dataset-processing/src/blmrdata/utils/redpajama/work
 
 ```
 
+In the output folder you will find the following folders:
+
+- `documents`: contain the text, metadata and some metrics but only a subset like in RedPajamaV2
+- `listings`: contain the list of files to process for the next steps
+- `minhashes`: contain the minhashes of the documents
+- `quality_signals`: contain the quality signals of the documents
+
+Documents are in the same order in each corresponding bucket output between `quality_signals` and `documents`, but not necessarily in the same order as the input dataset (because of multiprocessing).
+
+Unique id to identify document between the different folders is the `id` field.
+
 ### 2 - Exact deduplication
 
 The second script `launch_exact_dedup_LEGI` will compute the quasi-exact deduplication (bloom-filter) of the dataset. It will use the exact hashes computed in the previous step.
