@@ -14,6 +14,7 @@ install_requires = [
     "click",
     "sentencepiece>=0.1.82",
     "kenlm @ git+https://github.com/kpu/kenlm.git@master",
+    "redpajama @ git+https://github.com/EvanDufraisse/RedPajamaV2-Utils@main",
 ]
 
 dependency_links = []
