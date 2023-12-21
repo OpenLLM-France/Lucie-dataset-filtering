@@ -1,6 +1,6 @@
 # Bloom-ng-dataset-processing - Data processing scripts Bloom-ng-7B
 
-Code to compile and process data from Bloom-ng-7B experiment
+Code to process english and french datasets using ccnet and gopher, refineweb and redpajamaV2 metrics.
 
 
 ## TODO
