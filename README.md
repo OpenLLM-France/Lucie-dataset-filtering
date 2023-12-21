@@ -36,7 +36,7 @@ This assumes your dataset is a compressed jsonl file (for instance a jsonl.gz) (
 In `./scripts` you will find the scripts to process the data for LEGI, replace variables with the right values for you.
 
 ### 1 - Computing the metrics
-The first script `launch_processing_LEGI` will compute perplexity of all documents using the CCNET models. Only FR and EN are supported for now, but many ccnet models are available in practice. It will also compute the minhashes of the documents, an exact hash of the documents for exact-deduplication, and Gopher, RefinedWeb and RedpajamaV2 metrics.
+The first script `launch_processing_LEGI` will compute perplexity of all documents using the CCNET models. Only FR and EN are supported for now, but many ccnet models are available in practice. It will also compute the minhashes of the documents, an exact hash of the documents for exact-deduplication, and Gopher, RefinedWeb and RedpajamaV2 metrics. Metrics from the paper `Importance Resampling (Xie et al.)` are not implemented, as they rely on unavailable models.
 
 The file called is `Bloom-ng-dataset-processing/src/blmrdata/utils/redpajama/worker.py`, and the arguments are the following:
 
