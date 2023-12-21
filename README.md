@@ -74,6 +74,8 @@ Documents are in the same order in each corresponding bucket output between `qua
 
 Unique id to identify document between the different folders is the `id` field.
 
+See example output of LEGI dataset in `output_legi.tar.gz`.
+
 ### 2 - Exact deduplication
 
 The second script `launch_exact_dedup_LEGI` will compute the quasi-exact deduplication (bloom-filter) of the dataset. It will use the exact hashes computed in the previous step.
