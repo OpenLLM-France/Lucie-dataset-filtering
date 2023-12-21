@@ -54,6 +54,7 @@ class DatasetProcessor(object):
         flust_freq: int = 1000,
         minhash_similarities: str = "[1.0, 0.9, 0.8, 0.7]",
         size_shard: int = 1,
+        regex_pattern: str = ".*.jsonl.gz",
     ):
         self.path_fasttext_model = path_fasttext_model
         self.path_perplexity_models = path_perplexity_models
@@ -67,6 +68,7 @@ class DatasetProcessor(object):
         self.flush_freq = flust_freq
         self.minhash_similarities = literal_eval(minhash_similarities)
         self.size_shard = size_shard
+        self.regex_pattern = regex_pattern
 
     @staticmethod
     def get_files_of_interest(root_path: Path, regex_pattern: str = ".*.jsonl.gz"):
@@ -91,7 +93,9 @@ class DatasetProcessor(object):
 
         assert language in ["fr", "en"], f"Language {language} not supported"
 
-        files_of_interest = sorted(DatasetProcessor.get_files_of_interest(path_dataset))
+        files_of_interest = sorted(
+            DatasetProcessor.get_files_of_interest(path_dataset, self.regex_pattern)
+        )
         print(f"Processing {len(files_of_interest)} files")
         manager = mp.Manager()
         writer_queue = manager.Queue()
@@ -175,13 +179,16 @@ def open_quality_signals_jsonl_gz(uri_id, output_folder):
         uri_id=uri_id,
         subfolder="quality_signals",
         output_folder=output_folder,
-        extension=".signals.jsonl.gz",
+        extension=".signals.json.gz",
     )
 
 
 def open_documents_jsonl_gz(uri_id, output_folder):
     return open_jsonl_gz(
-        uri_id=uri_id, subfolder="documents", output_folder=output_folder
+        uri_id=uri_id,
+        subfolder="documents",
+        output_folder=output_folder,
+        extension=".json.gz",
     )
 
 
@@ -189,6 +196,9 @@ def open_jsonl_gz(uri_id, subfolder, output_folder, extension=".json.gz"):
     path_gz = os.path.join(
         output_folder, subfolder, uri_id.split(".")[0].strip("/") + extension
     )
+    dirname = os.path.dirname(path_gz)
+    if not os.path.exists(dirname):
+        os.makedirs(dirname)
     return gzip.open(
         path_gz,
         "wt",
@@ -196,12 +206,16 @@ def open_jsonl_gz(uri_id, subfolder, output_folder, extension=".json.gz"):
 
 
 def open_minhash_parquet(uri_id, output_folder, minhash_schema):
+    output_fp = os.path.join(
+        output_folder,
+        "minhash",
+        uri_id.split(".")[0].strip("/") + ".minhash.parquet",
+    )
+    dirname = os.path.dirname(output_fp)
+    if not os.path.exists(dirname):
+        os.makedirs(dirname)
     return ParquetBatchWriter(
-        output_fp=os.path.join(
-            output_folder,
-            "minhash",
-            uri_id.split(".")[0].strip("/") + ".minhash.parquet",
-        ),
+        output_fp=output_fp,
         schema=minhash_schema,
     )
 
@@ -226,10 +240,11 @@ def writer(
     flush_freq=1000,
     minhash_similarities=[1.0, 0.9, 0.8, 0.7],
 ):
-    """Writer process, writes minhash to parquet file and quality signals to jsonl.gz respecting format of orginal redpajama dataset"""
+    """Writer process, writes minhash to parquet file and quality signals to json.gz respecting format of orginal redpajama dataset"""
     os.makedirs(os.path.join(output_folder, "documents"), exist_ok=True)
     os.makedirs(os.path.join(output_folder, "minhash"), exist_ok=True)
     os.makedirs(os.path.join(output_folder, "quality_signals"), exist_ok=True)
+    os.makedirs(os.path.join(output_folder, "listings"), exist_ok=True)
     opened_minhash_parquet = {}
     opened_quality_signals_jsonl_gz = {}
     opened_documents_jsonl_gz = {}
@@ -244,6 +259,7 @@ def writer(
             ],
         ]
     )
+    listings = open(os.path.join(output_folder, "listings", "listings.txt"), "w")
     while True:
         value = writer_queue.get()
         if value is None:
@@ -253,26 +269,32 @@ def writer(
             action, record, minhashes = value
 
         if action == "STOP":
+            listings.close()
             for uri_id in opened_minhash_parquet:
-                opened_minhash_parquet[uri_id].write_batch()
-                opened_minhash_parquet[uri_id].close()
+                for bucket in opened_minhash_parquet[uri_id]:
+                    opened_minhash_parquet[uri_id][bucket].write_batch()
+                    opened_minhash_parquet[uri_id][bucket].close()
             for uri_id in opened_quality_signals_jsonl_gz:
-                opened_quality_signals_jsonl_gz[uri_id].close()
+                for bucket in opened_quality_signals_jsonl_gz[uri_id]:
+                    opened_quality_signals_jsonl_gz[uri_id][bucket].close()
             for uri_id in opened_documents_jsonl_gz:
-                opened_documents_jsonl_gz[uri_id].close()
+                for bucket in opened_documents_jsonl_gz[uri_id]:
+                    opened_documents_jsonl_gz[uri_id][bucket].close()
             return
         elif action == "Close":
             uri_id = record
             if uri_id in opened_minhash_parquet:
-                opened_minhash_parquet[uri_id].write_batch()
-                opened_minhash_parquet[uri_id].close()
-                counter = 0
+                for bucket in opened_minhash_parquet[uri_id]:
+                    opened_minhash_parquet[uri_id][bucket].write_batch()
+                    opened_minhash_parquet[uri_id][bucket].close()
                 del opened_minhash_parquet[uri_id]
             if uri_id in opened_quality_signals_jsonl_gz:
-                opened_quality_signals_jsonl_gz[uri_id].close()
+                for bucket in opened_quality_signals_jsonl_gz[uri_id]:
+                    opened_quality_signals_jsonl_gz[uri_id][bucket].close()
                 del opened_quality_signals_jsonl_gz[uri_id]
             if uri_id in opened_documents_jsonl_gz:
-                opened_documents_jsonl_gz[uri_id].close()
+                for bucket in opened_documents_jsonl_gz[uri_id]:
+                    opened_documents_jsonl_gz[uri_id][bucket].close()
                 del opened_documents_jsonl_gz[uri_id]
         else:
             uri_id = record["uri_id"]
@@ -305,18 +327,33 @@ def writer(
                         ),
                         max_size=flush_freq,
                     )
+                    listings.write(
+                        os.path.join("documents", idx_shard, b_uri_id.strip("/")) + "\n"
+                    )
+
+            identifiers = {
+                "shard_id": os.path.join(idx_shard, uri_id.strip("/")),
+                "id_int": record["doc_id_int"],
+                "id": os.path.join(idx_shard, record["doc_id"].strip("/")),
+            }
+
             opened_minhash_parquet[uri_id][bucket].update_batch(
                 obj={
-                    "shard_id": os.path.join(idx_shard, uri_id.strip("/")),
-                    "id_int": record["doc_id_int"],
-                    "id": record["doc_id"],
+                    **identifiers,
                     **minhashes,
                 }
             )
             if len(opened_minhash_parquet[uri_id][bucket]) >= flush_freq:
                 opened_minhash_parquet[uri_id][bucket].write_batch()
             opened_quality_signals_jsonl_gz[uri_id][bucket].write(
-                json.dumps({**record["meta"], **record["quality_signals"]}) + "\n"
+                json.dumps(
+                    {
+                        **identifiers,
+                        **{"metadata": record["meta"]},
+                        **{"quality_signals": record["quality_signals"]},
+                    }
+                )
+                + "\n"
             )
             opened_documents_jsonl_gz[uri_id][bucket].write(
                 json.dumps({**record["meta"], **record["documents"]}) + "\n"
@@ -389,7 +426,9 @@ def worker(
                 "other": {},
                 "meta": {},
             }
-            final_record["raw_content"] = doc[mapping_fields["raw_content"]]
+            final_record["documents"]["raw_content"] = doc[
+                mapping_fields["raw_content"]
+            ]
             if "source_domain" in mapping_fields:
                 final_record["meta"]["source_domain"] = doc[
                     mapping_fields["source_domain"]
@@ -402,6 +441,11 @@ def worker(
             else:
                 final_record["meta"]["url"] = None
 
+            if "title" in mapping_fields:
+                final_record["documents"]["title"] = doc[mapping_fields["title"]]
+            else:
+                final_record["documents"]["title"] = None
+
             if "date_download" in mapping_fields:
                 final_record["meta"]["date_download"] = doc[
                     mapping_fields["date_download"]
@@ -410,14 +454,14 @@ def worker(
                 final_record["meta"]["date_download"] = None
 
             final_record["meta"]["digest"] = compute_sha1_hash(
-                final_record["raw_content"]
+                final_record["documents"]["raw_content"]
             )
 
             final_record["meta"]["language"] = language
 
             # Compute quality signals
 
-            document_length = len(final_record["raw_content"])
+            document_length = len(final_record["documents"]["raw_content"])
             final_record["quality_signals"]["ccnet_length"] = [
                 [0, document_length, document_length]
             ]
@@ -425,7 +469,7 @@ def worker(
                 [
                     0,
                     document_length,
-                    len(final_record["raw_content"].split("\n")),
+                    len(final_record["documents"]["raw_content"].split("\n")),
                 ]
             ]
             final_record["documents"]["nlines"] = final_record["quality_signals"][
@@ -436,7 +480,7 @@ def worker(
             ][0][-1]
 
             detected_language, language_score = fasttext_model.predict_lang(
-                final_record["raw_content"]
+                final_record["documents"]["raw_content"]
             )
             final_record["documents"]["language_score"] = language_score
             if detected_language != language:
@@ -446,7 +490,7 @@ def worker(
             ]
 
             final_record["documents"]["perplexity"] = perplexity_model(
-                final_record["raw_content"]
+                final_record["documents"]["raw_content"]
             )
 
             final_record["quality_signals"]["ccnet_perplexity"] = [
@@ -479,7 +523,7 @@ def worker(
             ]
 
             document = Document(
-                content=final_record["raw_content"],
+                content=final_record["documents"]["raw_content"],
                 domain=final_record["meta"]["source_domain"],
                 precompute_ngrams=True,
                 precompute_hash_features=True,
@@ -512,59 +556,65 @@ def worker(
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--path_dataset",
+        "--dir_dataset",
         type=str,
-        help="Path to the dataset to process",
+        help="Root directory of the dataset to process, all subfolders will be explored for supplied regex pattern",
     )
     parser.add_argument(
-        "--path_output",
+        "--regex-pattern",
         type=str,
-        help="Path to the output folder",
+        default=".*.jsonl.gz",
+        help="Regex pattern to match files of interest",
+    )
+    parser.add_argument(
+        "--dir_output",
+        type=str,
+        help="Root directory of the output folder, where 'documents', 'quality_signals', 'minhash' and 'listings' will be created",
     )
     parser.add_argument(
         "--path_fasttext_model",
         type=str,
-        help="Path to the fasttext model",
+        help="Path to the fasttext model lid.176.bin file",
     )
     parser.add_argument(
-        "--path_perplexity_models",
+        "--dir_perplexity_models",
         type=str,
-        help="Path to the perplexity models",
+        help="Root directory to the perplexity models",
     )
     parser.add_argument(
-        "--path_words_filter",
+        "--dir_words_filter",
         type=str,
-        help="Path to the words filter",
+        help="Directory of the the words filter from ls",
     )
     parser.add_argument(
-        "--path_domain_filter",
+        "--dir_domain_filter",
         type=str,
-        help="Path to the domain filter",
+        help="Directory to the domain filter",
     )
     parser.add_argument(
         "--path_cut_offs",
         type=str,
-        help="Path to the cut offs",
+        help="Path to the ccnet cut offs perplexity json file",
     )
     parser.add_argument(
         "--mapping_fields",
         type=str,
-        help="Mapping fields",
+        help="Mapping fields to map original fields to redpajama fields",
     )
     parser.add_argument(
         "--default_fields",
         type=str,
-        help="Default fields",
+        help="Default fields, to set redpajama fields without equivalent in the original dataset",
     )
     parser.add_argument(
         "--fields_to_keep",
         type=str,
-        help="Fields to keep",
+        help="Fields to keep, fields to add to the 'other' field of documents",
     )
     parser.add_argument(
         "--language",
         type=str,
-        help="Language",
+        help="Language to process, all files not identified as this language will be skipped",
     )
     parser.add_argument(
         "--n_processes",
@@ -593,9 +643,9 @@ if __name__ == "__main__":
 
     dataset_processor = DatasetProcessor(
         path_fasttext_model=args.path_fasttext_model,
-        path_perplexity_models=args.path_perplexity_models,
-        path_words_filter=args.path_words_filter,
-        path_domain_filter=args.path_domain_filter,
+        path_perplexity_models=args.dir_perplexity_models,
+        path_words_filter=args.dir_words_filter,
+        path_domain_filter=args.dir_domain_filter,
         path_cut_offs=args.path_cut_offs,
         mapping_fields=args.mapping_fields,
         default_fields=args.default_fields,
@@ -607,7 +657,7 @@ if __name__ == "__main__":
     )
 
     dataset_processor.process_dataset(
-        path_dataset=args.path_dataset,
-        path_output=args.path_output,
+        path_dataset=args.dir_dataset,
+        path_output=args.dir_output,
         language=args.language,
     )
