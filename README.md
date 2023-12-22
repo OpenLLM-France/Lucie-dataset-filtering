@@ -40,7 +40,6 @@ The first script `launch_processing_LEGI` will compute perplexity of all documen
 
 The file called is `Bloom-ng-dataset-processing/src/blmrdata/utils/redpajama/worker.py`, and the arguments are the following:
 
-As in RedpajamaV2, the output documents are separated according to their perplexity scores into three buckets (tail, middle, head).
 
 ```bash
 
@@ -71,6 +70,8 @@ In the output folder you will find the following folders:
 - `quality_signals`: contain the quality signals of the documents
 
 Documents are in the same order in each corresponding bucket output between `quality_signals` and `documents`, but not necessarily in the same order as the input dataset (because of multiprocessing).
+
+As in RedpajamaV2, the output documents are separated according to their perplexity scores into three buckets (tail, middle, head).
 
 Unique id to identify document between the different folders is the `id` field.
 
