@@ -1,17 +1,17 @@
-# Bloom-ng-dataset-processing - Data processing scripts Bloom-ng-7B
+# Data processing - Bloom-ng-7B
 
-Code to process english and french datasets using ccnet and gopher, refineweb and redpajamaV2 metrics.
+Code to process English and French datasets using ccnet and gopher, refineweb and redpajamaV2 metrics.
 
 
 ## Note: todo
 
-- Near-deduplication is not implemented yet, minhashes are computed though.
+- Near-deduplication is not yet implemented, but minhashes are computed.
 
 # Process
 
 ## Installation
 
-Installation involves a modified version of packaged RedPajama code, automatically cloned upon install and available [here](https://github.com/EvanDufraisse/RedPajamaV2-Utils.git)
+Installation involves a modified version of the RedPajama packaged code, which is automatically cloned during installation and available [here](https://github.com/EvanDufraisse/RedPajamaV2-Utils.git)
 requirements: python 3.8+
 
 ```bash
@@ -31,12 +31,12 @@ tar -xf assets.tar.gz
 
 ## Processing Steps
 
-This assumes your dataset is a compressed jsonl file (for instance a jsonl.gz) (i.e. one json per line)
+This assumes that your dataset is a compressed jsonl file (e.g. a jsonl.gz) (i.e. one json per line).
 
-In `./scripts` you will find the scripts to process the data for LEGI, replace variables with the right values for you.
+In `./scripts' you will find the scripts to process the data for LEGI, replace variables with the correct values for you.
 
 ### 1 - Computing the metrics
-The first script `launch_processing_LEGI` will compute perplexity of all documents using the CCNET models. Only FR and EN are supported for now, but many ccnet models are available in practice. It will also compute the minhashes of the documents, an exact hash of the documents for exact-deduplication, and Gopher, RefinedWeb and RedpajamaV2 metrics. Metrics from the paper `Importance Resampling (Xie et al.)` are not implemented, as they rely on unavailable models.
+The first script `launch_processing_LEGI` will compute the perplexity of all documents using the CCNET models. Currently only FR and EN are supported, but in practice many CCNET models are available. It will also compute the minhashes of the documents, exact hashes of the documents for exact deduplication, and the Gopher, RefinedWeb, and RedpajamaV2 metrics. The metrics from the paper `Importance Resampling (Xie et al.)' are not implemented because they rely on models that are not available.
 
 The file called is `Bloom-ng-dataset-processing/src/blmrdata/utils/redpajama/worker.py`, and the arguments are the following:
 
@@ -64,16 +64,16 @@ python ${CODE_DIR}/Bloom-ng-dataset-processing/src/blmrdata/utils/redpajama/work
 
 In the output folder you will find the following folders:
 
-- `documents`: contain the text, metadata and some metrics but only a subset like in RedPajamaV2
+- `documents`: contain the text, metadata and some metrics but only a subset as in RedPajamaV2
 - `listings`: contain the list of files to process for the next steps
 - `minhashes`: contain the minhashes of the documents
 - `quality_signals`: contain the quality signals of the documents
 
-Documents are in the same order in each corresponding bucket output between `quality_signals` and `documents`, but not necessarily in the same order as the input dataset (because of multiprocessing).
+Documents are in the same order in each corresponding bucket output between `quality_signals` and `documents`, but not necessarily in the same order as the input dataset (due to  ultiprocessing).
 
-As in RedpajamaV2, the output documents are separated according to their perplexity scores into three buckets (tail, middle, head).
+As in RedpajamaV2, the output documents are separated into three buckets (tail, middle, head) according to their perplexity scores.
 
-Unique id to identify document between the different folders is the `id` field.
+The unique ID to identify a document between different folders is the `id` field.
 
 See example output of LEGI dataset in `output_legi.tar.gz`.
 
@@ -104,7 +104,7 @@ python ${CODE_DIR}/Bloom-ng-dataset-processing/src/blmrdata/utils/redpajama/exac
 ### 4 - Filtering
 
 You can filter by implementing your own filter functions based on quality signals.
-An example of the gopher filter is provided in RedPajamaV2 dataset's description on huggingface https://huggingface.co/datasets/togethercomputer/RedPajama-Data-V2.
+An example of the Gopher filter is provided in the description of the RedPajamaV2 dataset on huggingface. https://huggingface.co/datasets/togethercomputer/RedPajama-Data-V2.
 
 ## License
 
