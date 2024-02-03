@@ -237,6 +237,9 @@ def writer(writer_queue, output_parquet, schema, flush_freq=1000):
             action, record, signals = value
         if action == "STOP":
             _writer.close()
+            for signal in signals_list:
+                _signal_writer.write(signal)
+            signals_list = []
             _signal_writer.close()
             return
         elif action == "Close":

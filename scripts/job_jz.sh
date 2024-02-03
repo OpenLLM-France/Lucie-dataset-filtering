@@ -11,6 +11,8 @@ source ~/.bashrc
 
 module load python/3.9.12
 
+eval "$(conda shell.bash hook)"
+
 conda activate python-3.9.12
 
 folder_dataset=$1
