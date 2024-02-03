@@ -11,6 +11,7 @@ source ~/.bashrc
 
 module load python/3.9.12
 
+conda activate python-3.9.12
 
 folder_dataset=$1
 
