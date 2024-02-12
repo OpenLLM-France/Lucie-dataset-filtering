@@ -84,6 +84,18 @@ class DatasetProcessor(object):
             output_parquet = os.path.join(
                 dir_output, dirname_file, os.path.basename(file)
             )
+            name_files_already_processed = set(
+                [
+                    f
+                    for f in os.listdir(os.path.dirname(output_parquet))
+                    if f.endswith(".parquet")
+                ]
+            )
+            if os.path.basename(output_parquet) in name_files_already_processed:
+                logger.info(
+                    f"Skipping {os.path.basename(output_parquet)}, already processed"
+                )
+
             parquet_file = pq.read_table(file)
             original_schema = parquet_file.schema
             original_fields = {field.name: field for field in original_schema}
