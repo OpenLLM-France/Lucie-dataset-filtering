@@ -95,6 +95,7 @@ class DatasetProcessor(object):
                 logger.info(
                     f"Skipping {os.path.basename(output_parquet)}, already processed"
                 )
+                continue
 
             parquet_file = pq.read_table(file)
             original_schema = parquet_file.schema
