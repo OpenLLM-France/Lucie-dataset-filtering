@@ -24,8 +24,8 @@ python ${CODE_DIR}/Bloom-ng-dataset-processing/src/blmrdata/utils/redpajama/work
 --final-dir-output /home/data/edufraisse/DATA/LUCIE/perplexity_corpus_open_llm \
 --path_fasttext_model ${DIR_ASSETS}/fasttext/lid.176.bin \
 --dir_perplexity_models ${DIR_ASSETS}/ccnet_models \
---language 'fr' \
---n-processes 72 \
+--language 'en' \
+--n-processes 30 \
 --flush-freq 1000
 
 rsync -avh --progress $DIR_OUTPUT/ /home/data/edufraisse/DATA/LUCIE/perplexity_corpus_open_llm/ && rm -rf $DIR_OUTPUT
