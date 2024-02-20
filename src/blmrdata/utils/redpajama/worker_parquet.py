@@ -395,6 +395,8 @@ if __name__ == "__main__":
         help="Frequency of flushing the writer queue",
     )
 
+    print("Parsing args")
+
     args = parser.parse_args()
 
     dataset_processor = DatasetProcessor(
@@ -403,6 +405,8 @@ if __name__ == "__main__":
         n_processes=args.n_processes,
         flush_freq=args.flush_freq,
     )
+
+    print("Processing dataset")
 
     dataset_processor.process_dataset(
         dir_input=args.dir_input,
