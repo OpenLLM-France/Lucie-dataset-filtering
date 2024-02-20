@@ -1,11 +1,9 @@
 #!/bin/bash
-#SBATCH --account=lasti
 #SBATCH --job-name=Preprocess
 #SBATCH --ntasks=1
 #SBATCH --time=7-00:00:00
 #SBATCH -c 72
 #SBATCH --exclusive
-#SBATCH --hint=nomultithread
 #SBATCH --partition=allcpu
 
 eval "$(conda shell.bash hook)"
