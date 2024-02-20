@@ -15,7 +15,7 @@ folder_dataset=$1
 
 DIR_ASSETS=${CODE_DIR}/assets
 DIR_DATASET=/home/data/edufraisse/DATA/LUCIE/${folder_dataset}
-DIR_OUTPUT=/sscratch/edufraisse/perplexity_corpus_open_llm
+DIR_OUTPUT=/scratch/edufraisse/perplexity_corpus_open_llm
 mkdir -p $DIR_OUTPUT
 
 python ${CODE_DIR}/Bloom-ng-dataset-processing/src/blmrdata/utils/redpajama/worker_parquet.py \
