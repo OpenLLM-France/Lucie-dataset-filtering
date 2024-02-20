@@ -21,6 +21,7 @@ makedir -p $DIR_OUTPUT
 python ${CODE_DIR}/Bloom-ng-dataset-processing/src/blmrdata/utils/redpajama/worker_parquet.py \
 --dir-input $DIR_DATASET \
 --dir-output $DIR_OUTPUT \
+--final-dir-output /home/data/edufraisse/DATA/LUCIE/perplexity_corpus_open_llm \
 --path_fasttext_model ${DIR_ASSETS}/fasttext/lid.176.bin \
 --dir_perplexity_models ${DIR_ASSETS}/ccnet_models \
 --language 'fr' \

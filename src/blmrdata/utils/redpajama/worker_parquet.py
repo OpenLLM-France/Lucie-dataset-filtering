@@ -73,22 +73,29 @@ class DatasetProcessor(object):
                     files_of_interest.append(os.path.join(root, file))
         return files_of_interest
 
-    def process_dataset(self, dir_input: Path, dir_output: Path, language: str):
+    def process_dataset(
+        self, dir_input: Path, dir_output: Path, final_dir_output: Path, language: str
+    ):
         """Process a dataset and output a new one with the perplexity score"""
 
         assert language in ["fr", "en"], f"Language {language} not supported"
         files_of_interest = self.get_files_of_interest(dir_input, self.regex_pattern)
         print(f"Found {len(files_of_interest)} files of interest", flush=True)
+        if final_dir_output == "":
+            final_dir_output = dir_output
         for idx_file, file in enumerate(files_of_interest):
             print(f"Processing file {file} {idx_file}/{len(files_of_interest)-1}")
             dirname_file = os.path.dirname(file).split("/")[-1]
             output_parquet = os.path.join(
                 dir_output, dirname_file, os.path.basename(file)
             )
+            final_output_parquet = os.path.join(
+                final_dir_output, dirname_file, os.path.basename(file)
+            )
             name_files_already_processed = set(
                 [
                     f
-                    for f in os.listdir(os.path.dirname(output_parquet))
+                    for f in os.listdir(os.path.dirname(final_output_parquet))
                     if f.endswith(".parquet")
                 ]
             )
@@ -359,6 +366,12 @@ if __name__ == "__main__":
         help="Path to the parquet file to process",
     )
     parser.add_argument(
+        "--final-dir-output",
+        type=str,
+        help="Path to final parquet directory",
+        default="",
+    )
+    parser.add_argument(
         "--regex-pattern",
         type=str,
         default=".*.parquet",
@@ -412,5 +425,6 @@ if __name__ == "__main__":
     dataset_processor.process_dataset(
         dir_input=args.dir_input,
         dir_output=args.dir_output,
+        final_dir_output=args.final_dir_output,
         language=args.language,
     )
