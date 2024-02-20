@@ -78,6 +78,7 @@ class DatasetProcessor(object):
 
         assert language in ["fr", "en"], f"Language {language} not supported"
         files_of_interest = self.get_files_of_interest(dir_input, self.regex_pattern)
+        print(f"Found {len(files_of_interest)} files of interest", flush=True)
         for idx_file, file in enumerate(files_of_interest):
             print(f"Processing file {file} {idx_file}/{len(files_of_interest)-1}")
             dirname_file = os.path.dirname(file).split("/")[-1]
