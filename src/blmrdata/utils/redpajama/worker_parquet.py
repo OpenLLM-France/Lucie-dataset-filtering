@@ -36,6 +36,7 @@ import re
 import pyarrow.parquet as pq
 import pdb
 import pandas as pd
+import gc
 
 _BYTE_ORDER = sys.byteorder
 
@@ -121,6 +122,7 @@ class DatasetProcessor(object):
 
             del parquet_file
 
+            gc.collect()
             manager = mp.Manager()
             writer_queue = manager.Queue()
             # Start writer process
