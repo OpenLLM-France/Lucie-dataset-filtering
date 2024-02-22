@@ -80,7 +80,12 @@ class DatasetProcessor(object):
         """Process a dataset and output a new one with the perplexity score"""
 
         assert language in ["fr", "en"], f"Language {language} not supported"
-        files_of_interest = self.get_files_of_interest(dir_input, self.regex_pattern)
+        if str(dir_input).endswith(".parquet"):
+            files_of_interest = [dir_input]
+        else:
+            files_of_interest = self.get_files_of_interest(
+                dir_input, self.regex_pattern
+            )
         print(f"Found {len(files_of_interest)} files of interest", flush=True)
         if final_dir_output == "":
             final_dir_output = dir_output
