@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --account=ksy@cpu
+#SBATCH --account=qgz@cpu
 #SBATCH --job-name=Preprocess
 #SBATCH --ntasks=1
 #SBATCH --time=20:00:00
