@@ -16,7 +16,7 @@ for dataset in "${datasets[@]}"; do
     for file in "$input_folder"/*.parquet; do
         filename=$(basename "$file")
         if [ ! -f "$output_folder/$filename" ]; then
-            sbatch job_jz_parquet_wise_en.sh ${dataset}/${filename}
+            sbatch job_jz_parquet_wise_en.sh "${dataset}/${filename}"
         else
             echo "$filename already processed"
         fi
