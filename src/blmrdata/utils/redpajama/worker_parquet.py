@@ -92,6 +92,8 @@ class DatasetProcessor(object):
         for idx_file, file in enumerate(files_of_interest):
             print(f"Processing file {file} {idx_file}/{len(files_of_interest)-1}")
             dirname_file = os.path.dirname(file).split("/")[-1]
+            if not (os.path.exists(os.path.join(final_dir_output, dirname_file))):
+                os.makedirs(os.path.join(final_dir_output, dirname_file), exist_ok=True)
             output_parquet = os.path.join(
                 dir_output, dirname_file, os.path.basename(file)
             )
