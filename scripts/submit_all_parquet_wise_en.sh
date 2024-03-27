@@ -5,7 +5,7 @@ root_input_folder=$2
 
 
 # Array of dataset names
-datasets=("americanstories")
+datasets=("eurovoc_en")
 # Loop through each dataset and execute sbatch command
 for dataset in "${datasets[@]}"; do
     echo "Processing $dataset"
