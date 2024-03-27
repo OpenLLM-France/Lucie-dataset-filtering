@@ -26,6 +26,6 @@ python ${CODE_DIR}/Bloom-ng-dataset-processing/src/blmrdata/utils/redpajama/work
 --dir-output $DIR_OUTPUT \
 --path_fasttext_model ${DIR_ASSETS}/fasttext/lid.176.bin \
 --dir_perplexity_models ${DIR_ASSETS}/ccnet_models \
---language 'en' \
+--language 'de' \
 --n-processes 38 \
 --flush-freq 1000
