@@ -17,6 +17,8 @@ conda activate python-3.9.12
 
 folder_dataset=$1
 
+export CODE_DIR="/gpfswork/rech/ksy/uyc63jm/CODE/" 
+
 DIR_ASSETS=${CODE_DIR}/assets
 DIR_DATASET=/gpfswork/rech/qgz/commun/data/corpus_openllm/${folder_dataset}
 DIR_OUTPUT=/gpfswork/rech/ksy/uyc63jm/DATA/corpus_openllm_processed
