@@ -79,7 +79,7 @@ class DatasetProcessor(object):
     ):
         """Process a dataset and output a new one with the perplexity score"""
 
-        assert language in ["fr", "en"], f"Language {language} not supported"
+        # assert language in ["fr", "en"], f"Language {language} not supported"
         if str(dir_input).endswith(".parquet"):
             files_of_interest = [dir_input]
         else:
