@@ -29,6 +29,15 @@ tar -xf assets.tar.gz
 
 ```
 
+This contains models for French.
+You can download ccnet models for other languages using:
+```
+cd assets/ccnet_models/
+wget http://dl.fbaipublicfiles.com/cc_net/lm/$(lang).arpa.bin
+wget http://dl.fbaipublicfiles.com/cc_net/lm/$(lang).sp.model
+```
+where `$(lang)` is the language code (e.g. `en` for English).
+
 ## Processing Steps
 
 This assumes that your dataset is a compressed jsonl file (e.g. a jsonl.gz) (i.e. one json per line).
