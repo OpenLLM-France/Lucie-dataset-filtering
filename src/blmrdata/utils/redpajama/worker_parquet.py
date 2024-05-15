@@ -72,7 +72,7 @@ class DatasetProcessor(object):
             for file in files:
                 if re.match(regex_pattern, file):
                     files_of_interest.append(os.path.join(root, file))
-        return files_of_interest
+        return sorted(files_of_interest)
 
     def process_dataset(
         self, dir_input: Path, dir_output: Path, final_dir_output: Path, language: str
