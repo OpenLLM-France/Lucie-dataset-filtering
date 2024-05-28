@@ -15,7 +15,7 @@ Installation involves a modified version of the RedPajama packaged code, which i
 requirements: python 3.8+
 
 ```bash
-cd Bloom-ng-dataset-processing
+cd Lucie-dataset-filtering
 pip install -e ./
 ```
 
@@ -47,12 +47,12 @@ In `./scripts' you will find the scripts to process the data for LEGI, replace v
 ### 1 - Computing the metrics
 The first script `launch_processing_LEGI` will compute the perplexity of all documents using the CCNET models. Currently only FR and EN are supported, but in practice many CCNET models are available. It will also compute the minhashes of the documents, exact hashes of the documents for exact deduplication, and the Gopher, RefinedWeb, and RedpajamaV2 metrics. The metrics from the paper `Importance Resampling (Xie et al.)' are not implemented because they rely on models that are not available.
 
-The file called is `Bloom-ng-dataset-processing/src/blmrdata/utils/redpajama/worker.py`, and the arguments are the following:
+The file called is `Lucie-dataset-filtering/src/blmrdata/utils/redpajama/worker.py`, and the arguments are the following:
 
 
 ```bash
 
-python ${CODE_DIR}/Bloom-ng-dataset-processing/src/blmrdata/utils/redpajama/worker.py \
+python ${CODE_DIR}/Lucie-dataset-filtering/src/blmrdata/utils/redpajama/worker.py \
 --dir_dataset $DIR_DATASET \ # Path to the dataset folder
 --dir_output $DIR_OUTPUT \ # Path to the output folder
 --path_fasttext_model ${DIR_ASSETS}/fasttext/lid.176.bin \ # Path to the fasttext model
@@ -94,7 +94,7 @@ The output is a parquet file in `${DIR_OUTPUT}/duplicates`.
 
 ```bash
 
-python ${CODE_DIR}/Bloom-ng-dataset-processing/src/blmrdata/utils/redpajama/exact_deduplication.py \
+python ${CODE_DIR}/Lucie-dataset-filtering/src/blmrdata/utils/redpajama/exact_deduplication.py \
 --listings ${DIR_OUTPUT}/listings/listings.txt # List files to process, built in previous step\
 --input_base_uri file://${DIR_OUTPUT} \ # Output dir of the previous step
 --output_dir ${DIR_OUTPUT}/duplicates \ # Output folder for the duplicates .parquet
