@@ -25,7 +25,7 @@ setup_kwargs = {
     "name": "blmrdata",
     "version": "0.1.0",
     "description": "",
-    "long_description": f"Bloomer-dataset-processing: Code to compile and process data from Bloomer-7B experiment",
+    "long_description": f"Lucie-dataset-filtering: Code to compile and preprocess training data for Lucie's training",
     "author": "OpenLLM",
     "author_email": "contact@openllm-france.fr",
     "maintainer": "None",
