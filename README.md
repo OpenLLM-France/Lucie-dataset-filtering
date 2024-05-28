@@ -1,4 +1,4 @@
-# Data processing - Bloom-ng-7B
+# Data Pre-processing
 
 Code to process English and French datasets using ccnet and gopher, refineweb and redpajamaV2 metrics.
 
