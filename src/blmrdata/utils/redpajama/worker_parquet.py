@@ -46,12 +46,14 @@ class DatasetProcessor(object):
         self,
         path_fasttext_model: Path,
         path_perplexity_models: Path,
+        dir_bad_words: Path,
         n_processes: int = 1,
         regex_pattern: str = ".*.parquet",
         flush_freq: int = 1000,
     ):
         self.path_fasttext_model = path_fasttext_model
         self.path_perplexity_models = path_perplexity_models
+        self.dir_bad_words = dir_bad_words
         self.n_processes = n_processes  # Num processing workers
         self.regex_pattern = regex_pattern
         self.flush_freq = flush_freq
@@ -401,6 +403,7 @@ if __name__ == "__main__":
         type=str,
         help="Root directory to the perplexity models",
     )
+    parser.add_argument("--dir-bad-words", type=str, help="Path to the bad words directory")
     parser.add_argument(
         "--n-processes",
         type=int,
@@ -425,6 +428,7 @@ if __name__ == "__main__":
     dataset_processor = DatasetProcessor(
         path_fasttext_model=args.path_fasttext_model,
         path_perplexity_models=args.dir_perplexity_models,
+        dir_bad_words=args.dir_bad_words,
         n_processes=args.n_processes,
         flush_freq=args.flush_freq,
     )
