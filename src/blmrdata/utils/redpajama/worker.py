@@ -489,7 +489,7 @@ def worker(
                 [0, document_length, round(language_score, 4)]
             ]
 
-            final_record["documents"]["perplexity"] = perplexity_model(
+            final_record["documents"]["perplexity"] = perplexity_model.pp(
                 final_record["documents"]["raw_content"]
             )
 

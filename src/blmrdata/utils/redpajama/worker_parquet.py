@@ -126,8 +126,9 @@ class DatasetProcessor(object):
                 + [
                     pa.field("chunk_start", pa.list_(pa.int32())),
                     pa.field("chunk_end", pa.list_(pa.int32())),
+                    pa.field("ccnet_avg_log_prob", pa.list_(pa.float32())),
+                    pa.field("ccnet_length", pa.list_(pa.int32())),
                     pa.field("ccnet_language_score", pa.list_(pa.float32())),
-                    pa.field("ccnet_perplexity", pa.list_(pa.float32())),
                     pa.field("fasttext_language", pa.list_(pa.string())),
                     pa.field("idx_row", pa.int32()),
                 ]
@@ -352,26 +353,30 @@ def worker(
             row["chunk_start"] = [start for (start, _) in chunks]
             row["chunk_end"] = [end for (_, end) in chunks]
 
-            row["ccnet_perplexity"] = [
-                perplexity_model(all_text_splits[i])
-                for i in range(len(all_text_splits))
+            perplexities = [
+                perplexity_model(chunk)
+                for chunk in all_text_splits
             ]
+
+            row["ccnet_avg_log_prob"] = [logprob for logprob, _ in perplexities]
+            row["ccnet_length"] = [length for _, length in perplexities]
+
             results = [
-                (fasttext_model.predict_lang(all_text_splits[i]))
-                for i in range(len(all_text_splits))
+                (fasttext_model.predict_lang(chunk))
+                for chunk in all_text_splits
             ]
             row["ccnet_language_score"] = [round(r[1], 4) for r in results]
             row["fasttext_language"] = [r[0] for r in results]
 
             documents = [
                 Document(
-                    content=all_text_splits[i],
+                    content=chunk,
                     domain="domain",
                     precompute_ngrams=True,
                     precompute_hash_features=False,
                     dsir_buckets=1,
                 )
-                for i in range(len(all_text_splits))
+                for chunk in all_text_splits
             ]
             signals = {}
             for func in rp2_callables:
