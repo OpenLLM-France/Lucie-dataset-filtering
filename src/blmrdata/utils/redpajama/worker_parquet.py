@@ -38,7 +38,7 @@ import pyarrow.parquet as pq
 import pdb
 import pandas as pd
 import gc
-from typing import Union
+from typing import Union, List
 
 _BYTE_ORDER = sys.byteorder
 
@@ -79,11 +79,10 @@ class DatasetProcessor(object):
         return sorted(files_of_interest)
 
     def process_dataset(
-        self, dir_input: Path, dir_output: Path, final_dir_output: Path, language: str
+        self, dir_input: Path, dir_output: Path, final_dir_output: Path, language: Union[List[str], str]
     ):
         """Process a dataset and output a new one with the perplexity score"""
 
-        # assert language in ["fr", "en"], f"Language {language} not supported"
         if str(dir_input).endswith(".parquet"):
             files_of_interest = [dir_input]
         else:
@@ -298,10 +297,14 @@ def worker(
     fasttext_model_path,
     cc_net_model_path,
     text_chunk_strategy,
-    language,
+    languages,
 ):
+    if isinstance(languages, str):
+        languages = [languages]
+    assert isinstance(languages, list) and len(languages) > 0, "Languages must be a non-empty list"
     fasttext_model = FastLanguageIdentification(fasttext_model_path)
-    perplexity_model = Perplexity(cc_net_model_path, language)
+    perplexity_models =dict((language, Perplexity(cc_net_model_path, language)) for language in languages)
+    default_language = languages[0]
     rp2_callables = []
     # rp2_callables += register_content_callables(
     #     language=language,
@@ -347,26 +350,36 @@ def worker(
             else:
                 raise ValueError("No text field found in the row")
 
+            # Chunk the text
             text = row[text_field]
             chunks, _ = get_text_chunks(text)
             all_text_splits = [text[start:end] for (start, end) in chunks]
             row["chunk_start"] = [start for (start, _) in chunks]
             row["chunk_end"] = [end for (_, end) in chunks]
 
-            perplexities = [
-                perplexity_model(chunk)
-                for chunk in all_text_splits
-            ]
-
-            row["ccnet_avg_log_prob"] = [logprob for logprob, _ in perplexities]
-            row["ccnet_length"] = [length for _, length in perplexities]
-
+            # Run language identification
             results = [
-                (fasttext_model.predict_lang(chunk))
+                fasttext_model.predict_lang(chunk)
                 for chunk in all_text_splits
             ]
             row["ccnet_language_score"] = [round(r[1], 4) for r in results]
             row["fasttext_language"] = [r[0] for r in results]
+
+            default_perplexity_model = perplexity_models[default_language]
+            if len(perplexity_models) == 1:
+                perplexities = [
+                    default_perplexity_model(chunk)
+                    for chunk in all_text_splits
+                ]
+            else:
+                perplexities = [
+                    perplexity_models.get(language, default_perplexity_model)(chunk)
+                    for chunk, language in zip(all_text_splits, row["fasttext_language"])
+                ]
+
+            row["ccnet_avg_log_prob"] = [logprob for logprob, _ in perplexities]
+            row["ccnet_length"] = [length for _, length in perplexities]
+
 
             documents = [
                 Document(
@@ -434,7 +447,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "--language",
         type=str,
-        help="Language of the dataset (en or fr)",
+        help="Language(s) of the dataset ('en', 'fr', ...). If it can be multi-lingual, the first language is the default when the detected languages is not in the list",
+        nargs="+",
     )
     parser.add_argument(
         "--flush-freq",
