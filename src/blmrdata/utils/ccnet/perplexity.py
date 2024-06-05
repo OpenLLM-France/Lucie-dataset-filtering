@@ -57,19 +57,20 @@ class Perplexity:
         )
         self.lm = kenlm.Model(f"{model_download_folder}/{language}.arpa.bin", kenlm.Config())
 
-    @staticmethod
-    def pp(log_score, length):
-        return 10.0 ** (-log_score / length)
-
+    def pp(self, text: str, **kwargs):
+        """Compute the perplexity of a text"""
+        (avg_neg_log_likelihood, length) = self.__call__(text, **kwargs)
+        return 10.0 ** -avg_neg_log_likelihood
 
     def __call__(self, text: str, normalize=False) -> dict:
-        """Compute the perplexity of a text
+        """Compute the average negative-log likelihood of a text
 
         Args:
             text (str): Text to compute the perplexity of
+            normalize (bool): Normalize the text before computing the perplexity
 
         Returns:
-            dict: Dict containing the text and the perplexity
+            a tuple (average negative log proba, length)
         """
         tokenized = self.sp(text)["tokenized"]
         lines = tokenized.split("\n")
@@ -82,7 +83,6 @@ class Perplexity:
             length = len(line.split()) + 1
             doc_log_score += log_score
             doc_length += length
-            perplexity = round(self.pp(doc_log_score, doc_length), 1)
 
-        return perplexity
+        return (-doc_log_score / doc_length, doc_length)
         

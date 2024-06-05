@@ -23,6 +23,7 @@ from blmrdata.utils.redpajama.metrics import FastLanguageIdentification
 import gc
 import sys
 from blmrdata.utils.ccnet.perplexity import Perplexity
+from blmrdata.utils.redpajama.chunk_text import chunk_text_simple, chunk_text_smart
 from redpajama.core.document import Document
 from redpajama.dedupe.minhash import MinHash
 
@@ -37,6 +38,7 @@ import pyarrow.parquet as pq
 import pdb
 import pandas as pd
 import gc
+from typing import Union, List
 
 _BYTE_ORDER = sys.byteorder
 
@@ -46,12 +48,14 @@ class DatasetProcessor(object):
         self,
         path_fasttext_model: Path,
         path_perplexity_models: Path,
+        text_chunk_strategy: Union[str, int] = "simple", # 10_000,
         n_processes: int = 1,
         regex_pattern: str = ".*.parquet",
         flush_freq: int = 1000,
     ):
         self.path_fasttext_model = path_fasttext_model
         self.path_perplexity_models = path_perplexity_models
+        self.text_chunk_strategy = text_chunk_strategy
         self.n_processes = n_processes  # Num processing workers
         self.regex_pattern = regex_pattern
         self.flush_freq = flush_freq
@@ -75,11 +79,10 @@ class DatasetProcessor(object):
         return sorted(files_of_interest)
 
     def process_dataset(
-        self, dir_input: Path, dir_output: Path, final_dir_output: Path, language: str
+        self, dir_input: Path, dir_output: Path, final_dir_output: Path, language: Union[List[str], str]
     ):
         """Process a dataset and output a new one with the perplexity score"""
 
-        # assert language in ["fr", "en"], f"Language {language} not supported"
         if str(dir_input).endswith(".parquet"):
             files_of_interest = [dir_input]
         else:
@@ -120,8 +123,11 @@ class DatasetProcessor(object):
             merged_schema = pa.schema(
                 list(original_fields.values())
                 + [
+                    pa.field("chunk_start", pa.list_(pa.int32())),
+                    pa.field("chunk_end", pa.list_(pa.int32())),
+                    pa.field("ccnet_avg_log_prob", pa.list_(pa.float32())),
+                    pa.field("ccnet_length", pa.list_(pa.int32())),
                     pa.field("ccnet_language_score", pa.list_(pa.float32())),
-                    pa.field("ccnet_perplexity", pa.list_(pa.float32())),
                     pa.field("fasttext_language", pa.list_(pa.string())),
                     pa.field("idx_row", pa.int32()),
                 ]
@@ -147,6 +153,7 @@ class DatasetProcessor(object):
                         writer_queue,
                         self.path_fasttext_model,
                         self.path_perplexity_models,
+                        self.text_chunk_strategy,
                         language,
                     ),
                 )
@@ -284,23 +291,20 @@ def writer(writer_queue, output_parquet, schema, flush_freq=1000):
                     _signal_writer.write(signal)
                 signals_list = []
 
-
-def split_text(text, caracter_split=10_000):
-    splits = []
-    for i in range(0, len(text), caracter_split):
-        splits.append(text[i : i + caracter_split])
-    return splits
-
-
 def worker(
     processing_queue,
     writer_queue,
     fasttext_model_path,
     cc_net_model_path,
-    language,
+    text_chunk_strategy,
+    languages,
 ):
+    if isinstance(languages, str):
+        languages = [languages]
+    assert isinstance(languages, list) and len(languages) > 0, "Languages must be a non-empty list"
     fasttext_model = FastLanguageIdentification(fasttext_model_path)
-    perplexity_model = Perplexity(cc_net_model_path, language)
+    perplexity_models =dict((language, Perplexity(cc_net_model_path, language)) for language in languages)
+    default_language = languages[0]
     rp2_callables = []
     # rp2_callables += register_content_callables(
     #     language=language,
@@ -316,6 +320,16 @@ def worker(
     #     num_permutations=minhash_num_permutations,
     #     seed=seed,
     # )
+
+    if isinstance(text_chunk_strategy, int):
+        get_text_chunks = lambda x: chunk_text_simple(x, text_chunk_strategy)
+    elif text_chunk_strategy == "smart":
+        get_text_chunks = chunk_text_smart
+    elif text_chunk_strategy == "simple":
+        get_text_chunks = chunk_text_simple
+    else:
+        raise ValueError(f"Text chunk strategy '{text_chunk_strategy}' ({type(text_chunk_strategy)}) not supported")
+
     while True:
         value = processing_queue.get()
         if value is None:
@@ -336,28 +350,46 @@ def worker(
             else:
                 raise ValueError("No text field found in the row")
 
-            all_text_splits = split_text(row[text_field])
+            # Chunk the text
+            text = row[text_field]
+            chunks, _ = get_text_chunks(text)
+            all_text_splits = [text[start:end] for (start, end) in chunks]
+            row["chunk_start"] = [start for (start, _) in chunks]
+            row["chunk_end"] = [end for (_, end) in chunks]
 
-            row["ccnet_perplexity"] = [
-                perplexity_model(all_text_splits[i])
-                for i in range(len(all_text_splits))
-            ]
+            # Run language identification
             results = [
-                (fasttext_model.predict_lang(all_text_splits[i]))
-                for i in range(len(all_text_splits))
+                fasttext_model.predict_lang(chunk)
+                for chunk in all_text_splits
             ]
             row["ccnet_language_score"] = [round(r[1], 4) for r in results]
             row["fasttext_language"] = [r[0] for r in results]
 
+            default_perplexity_model = perplexity_models[default_language]
+            if len(perplexity_models) == 1:
+                perplexities = [
+                    default_perplexity_model(chunk)
+                    for chunk in all_text_splits
+                ]
+            else:
+                perplexities = [
+                    perplexity_models.get(language, default_perplexity_model)(chunk)
+                    for chunk, language in zip(all_text_splits, row["fasttext_language"])
+                ]
+
+            row["ccnet_avg_log_prob"] = [logprob for logprob, _ in perplexities]
+            row["ccnet_length"] = [length for _, length in perplexities]
+
+
             documents = [
                 Document(
-                    content=all_text_splits[i],
+                    content=chunk,
                     domain="domain",
                     precompute_ngrams=True,
                     precompute_hash_features=False,
                     dsir_buckets=1,
                 )
-                for i in range(len(all_text_splits))
+                for chunk in all_text_splits
             ]
             signals = {}
             for func in rp2_callables:
@@ -402,6 +434,12 @@ if __name__ == "__main__":
         help="Root directory to the perplexity models",
     )
     parser.add_argument(
+        "--text_chunk_strategy",
+        type=str,
+        help="Text chunk strategy ('smart', 'simple' or int)",
+        default="simple",
+    )
+    parser.add_argument(
         "--n-processes",
         type=int,
         help="Number of processes",
@@ -409,7 +447,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "--language",
         type=str,
-        help="Language of the dataset (en or fr)",
+        help="Language(s) of the dataset ('en', 'fr', ...). If it can be multi-lingual, the first language is the default when the detected languages is not in the list",
+        nargs="+",
     )
     parser.add_argument(
         "--flush-freq",
@@ -422,9 +461,14 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
+    try:
+        args.text_chunk_strategy = int(args.text_chunk_strategy)
+    except: pass
+
     dataset_processor = DatasetProcessor(
         path_fasttext_model=args.path_fasttext_model,
         path_perplexity_models=args.dir_perplexity_models,
+        text_chunk_strategy=args.text_chunk_strategy,
         n_processes=args.n_processes,
         flush_freq=args.flush_freq,
     )
