@@ -50,12 +50,12 @@ def compute_line_features(line):
     if num_words <= 1:
         return (True, False, True, line_length)
     if no_alpha_char(line):
-        return (True, False, False, line_length)
+        return (True, False, True, line_length)
     if num_control_chars > 0.5 * num_words:
         return (True, False, False, line_length)
-    max_len = max(map(len, words))
-    if max_len > 25:
-        return (True, False, False, line_length)
+    # max_len = max(map(len, words))
+    # if max_len > 25:
+    #     return (True, False, False, line_length)
     return (False, False, False, line_length)
 
 def chunk_text_simple(text, chunk_size=10_000):
@@ -152,9 +152,12 @@ def chunk_text_smart(text,
                 assert first_line >= 0
                 start_char = start_char + line_length - num_char_since_last_suspicious
                 suspicious_chunks.append([first_line, iline, start_char, end_char])
+                # print("\n".join(lines[first_line:iline+1]))
             else:
                 suspicious_chunks[-1][1] = iline
                 suspicious_chunks[-1][-1] = end_char
+                # print(lines[iline])
+            
         else:
             # See if probable page break
             if is_empty:
@@ -171,6 +174,8 @@ def chunk_text_smart(text,
     # Interleave good and bad chunks
     tic = time.time()
     max_char_indices = len(text)
+    if max_char_indices == 0:
+        return [], []
     # line_breaks.append(max_char_indices)
     final_chunks = []
     bad_chunks = []
@@ -192,7 +197,6 @@ def chunk_text_smart(text,
             current_page += 1
             current_page_start = current_page_end
             current_page_end = line_breaks[current_page] if current_page<len(line_breaks) else max_char_indices
-            current_page_end = min(current_page_end, start_char)
 
     start_char = 0
     for start_char, end_char in suspicious_chunks:
