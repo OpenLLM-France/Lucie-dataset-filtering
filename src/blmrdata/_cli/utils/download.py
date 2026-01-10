@@ -1,14 +1,18 @@
 # -*- coding: utf-8 -*-
-""" Download resources to compile the dataset
+"""Download resources to compile the dataset
 
 @Date: Tue May 23 2023
 @Contact: contact@openllm-france.fr
 @License: MIT License
 """
+
+from pathlib import Path
+from typing import List
+
 import click
 from loguru import logger
 
-from tqdm.auto import tqdm
+from blmrdata.utils.ccnet.perplexity import download_perplexity_models
 
 
 @click.group(name="download")
@@ -18,12 +22,14 @@ def cli_download():
 
 
 @cli_download.command(
-    name="perplexity-models", help="Download perplexity models for supplied languages", context_settings={"show_default": True}
+    name="perplexity-models",
+    help="Download perplexity models for supplied languages",
+    context_settings={"show_default": True},
 )
 @click.option(
     "--languages",
     type=click.Choice(["en", "fr", "de", "es", "it", "nl", "pt", "ru", "sv", "tr"]),
-    default=("en","fr"),
+    default=("en", "fr"),
     multiple=True,
 )
 @click.option(
@@ -31,9 +37,11 @@ def cli_download():
     type=click.Path(exists=False),
     default="data/perplexity_models",
 )
-def cli_download_perplexity(languages, output_folder):
+def cli_download_perplexity(
+    languages: List[str],
+    output_folder: Path,
+) -> None:
     """Download perplexity models for supplied languages"""
-    from blmrdata.utils.ccnet.perplexity import download_perplexity_models
 
     logger.info(f"Downloading perplexity models for languages: {languages}")
     download_perplexity_models(languages, output_folder)
