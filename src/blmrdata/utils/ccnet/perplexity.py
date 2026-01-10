@@ -1,23 +1,48 @@
 # -*- coding: utf-8 -*-
 """Dowload and use CCNET models for perplexity estimation
 
-@Date: Wed Nov 29 2023
+@Date: Fri Jan 9 2026
 @Contact: contact@openllm-france.fr
 @License: MIT License
 """
 
 import os
 from pathlib import Path
-from typing import List, Tuple
+from typing import IO, List, Tuple
 
 import kenlm
+import requests
 from loguru import logger
 from tqdm.auto import tqdm
 
-from blmrdata.utils import download
 from blmrdata.utils.ccnet.ccnet_utilities import text_normalizer
 from blmrdata.utils.ccnet.ccnet_utilities.sentencepiece import SentencePiece
 
+def download(url: str, fname: str) -> IO[bytes]:
+    """
+    Download a file from the given URL and save it to the given filename.
+
+    Args:
+        url (str): The URL of the file to download.
+        fname (str): The filename to save the downloaded file as.
+
+    Returns:
+        IO[bytes]: The file object of the downloaded file.
+    """
+    session = requests.Session()
+    with session.get(url, stream=True) as resp:
+        total = int(resp.headers.get('content-length', 0))
+        with open(fname, 'wb') as file, tqdm(
+            desc=fname,
+            total=total,
+            unit='iB',
+            unit_scale=True,
+            unit_divisor=1024,
+        ) as bar:
+            for data in resp.iter_content(chunk_size=1024 * 16):
+                size = file.write(data)
+                bar.update(size)
+    return file
 
 def download_perplexity_models(languages: List[str], output_folder: Path) -> None:
     """Download perplexity models for the specified languages.
