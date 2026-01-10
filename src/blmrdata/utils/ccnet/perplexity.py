@@ -1,42 +1,70 @@
 # -*- coding: utf-8 -*-
-""" Dowload and use CCNET models for perplexity estimation
+"""Dowload and use CCNET models for perplexity estimation
 
 @Date: Wed Nov 29 2023
 @Contact: contact@openllm-france.fr
 @License: MIT License
 """
-import os
-from loguru import logger
-import typing
-from tqdm.auto import tqdm
-from pathlib import Path
-from blmrdata.utils.ccnet.ccnet_utilities import text_normalizer
-from blmrdata.utils import download
 
-def download_perplexity_models(languages: typing.List , output_folder: str):
-    """Download perplexity models for supplied languages
+import os
+from pathlib import Path
+from typing import List, Tuple
+
+import kenlm
+from loguru import logger
+from tqdm.auto import tqdm
+
+from blmrdata.utils import download
+from blmrdata.utils.ccnet.ccnet_utilities import text_normalizer
+from blmrdata.utils.ccnet.ccnet_utilities.sentencepiece import SentencePiece
+
+
+def download_perplexity_models(languages: List[str], output_folder: str) -> None:
+    """Download perplexity models for the specified languages.
 
     Args:
-        languages (typing.List): List of languages to download
-        output_folder (str): Folder to download the models
-    """
-    from tqdm.auto import tqdm
-    import requests
-    import tarfile
-    import shutil
+        languages (List[str]): List of language codes to download (e.g., ['fr', 'en'])
+        output_folder (str): Destination folder for downloaded models
 
+    Raises:
+        requests.RequestException: If an error occurs during download
+    """
     os.makedirs(output_folder, exist_ok=True)
 
     for lang in tqdm(languages, desc="Downloading models"):
-        url_model = f"http://dl.fbaipublicfiles.com/cc_net/lm/{lang}.arpa.bin"
-        url_sp = f"http://dl.fbaipublicfiles.com/cc_net/lm/$(lang).sp.model"
+        download_language_models(lang, output_folder)
 
-        logger.info(f"Downloading model for {lang}")
-        download(url_model, os.path.join(output_folder, f"{lang}.arpa.bin"))
-        download(url_sp, os.path.join(output_folder, f"{lang}.sp.model"))
 
-import kenlm
-from blmrdata.utils.ccnet.ccnet_utilities.sentencepiece import SentencePiece
+def download_language_models(language: str, output_folder: str) -> Tuple[Path, Path]:
+    """Download ARPA and SentencePiece models for a given language.
+
+    Args:
+        language (str): Language code (e.g., 'fr', 'en')
+        output_folder (str): destination folder
+
+    Returns:
+        Tuple[Path, Path]: A tuple containing the paths to the downloaded models
+    """
+    BASE_MODEL_URL = "http://dl.fbaipublicfiles.com/cc_net/lm"
+    MODEL_EXTENSIONS = {"arpa": ".arpa.bin", "sentencepiece": ".sp.model"}
+
+    logger.info(f"Downloading model for {language}")
+
+    arpa_url = f"{BASE_MODEL_URL}/{language}{MODEL_EXTENSIONS['arpa']}"
+    arpa_path = Path(
+        os.path.join(output_folder, f"{language}{MODEL_EXTENSIONS['arpa']}")
+    )
+    download(arpa_url, str(arpa_path))
+
+    sp_url = f"{BASE_MODEL_URL}/{language}{MODEL_EXTENSIONS['sentencepiece']}"
+    sp_path = Path(
+        os.path.join(output_folder, f"{language}{MODEL_EXTENSIONS['sentencepiece']}")
+    )
+    download(sp_url, str(sp_path))
+
+    return arpa_path, sp_path
+
+
 class Perplexity:
     """Class to compute perplexity of a document"""
 
@@ -55,12 +83,14 @@ class Perplexity:
             output_field="tokenized",
             normalize=True,
         )
-        self.lm = kenlm.Model(f"{model_download_folder}/{language}.arpa.bin", kenlm.Config())
+        self.lm = kenlm.Model(
+            f"{model_download_folder}/{language}.arpa.bin", kenlm.Config()
+        )
 
     def pp(self, text: str, **kwargs):
         """Compute the perplexity of a text"""
         (avg_neg_log_likelihood, length) = self.__call__(text, **kwargs)
-        return 10.0 ** -avg_neg_log_likelihood
+        return 10.0**-avg_neg_log_likelihood
 
     def __call__(self, text: str, normalize=False) -> dict:
         """Compute the average negative-log likelihood of a text
@@ -85,4 +115,3 @@ class Perplexity:
             doc_length += length
 
         return (-doc_log_score / doc_length, doc_length)
-        
