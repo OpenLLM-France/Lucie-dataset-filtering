@@ -36,14 +36,14 @@ pip install -e ./
 
 ```python
 from pathlib import Path
-from blmrdata.utils.ccnet import download_perplexity_models, Perplexity
+from blmrdata.utils.ccnet import download_ccnet_models, Perplexity
 
 # Setup paths and languages
-cc_net_model_path = Path("data/perplexity_models")
+cc_net_model_path = Path("assets/ccnet_models")
 languages = ["fr"]
 
 # Download perplexity models for French
-download_perplexity_models(languages=languages, output_folder=cc_net_model_path)
+download_ccnet_models(languages=languages, output_folder=cc_net_model_path)
 
 # Initialize the perplexity model
 perplexity_model = Perplexity(cc_net_model_path, languages[0])
@@ -59,7 +59,7 @@ print(f"Perplexity: {1 / score:.2f}")
 
 ### Functions
 
-#### `download_perplexity_models(languages: List[str], output_folder: Path) -> None`
+#### `download_ccnet_models(languages: List[str], output_folder: Path) -> None`
 
 Download perplexity models for specified languages.
 
@@ -69,7 +69,7 @@ Download perplexity models for specified languages.
 
 **Example:**
 ```python
-download_perplexity_models(languages=["fr", "en"], output_folder=Path("models"))
+download_ccnet_models(languages=["fr", "en"], output_folder=Path("models"))
 ```
 
 #### `download_language_models(language: str, output_folder: Path) -> Tuple[Path, Path]`
@@ -135,7 +135,8 @@ The library supports all languages available in Facebook's CCNet repository. Com
 - `ja` - Japanese
 - `ar` - Arabic
 
-For a complete list, see the [Facebook CCNet repository](https://github.com/facebookresearch/cc_net).
+For a complete list, see the [Facebook CCNet repository](https://github.com/facebookresearch/cc_net),
+for instance in the [Makefile](https://github.com/facebookresearch/cc_net/blob/main/Makefile#L10).
 
 ## Understanding Perplexity Scores
 

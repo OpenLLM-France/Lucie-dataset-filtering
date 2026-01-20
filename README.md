@@ -21,22 +21,17 @@ pip install -e ./
 
 ## Download assets
 
-Go [there](https://drive.google.com/drive/folders/1_l00r9rgT-FXfVnYq3JzHOvrGoM1LvVW?usp=sharing) and download the assets (and the example dataset LEGI if you want to try the scripts):
+See function `download_ccnet_models` in [the documentation about CCNet Perplexity](./src/blmrdata/utils/ccnet/README.md) to download ccnet models programmatically.
 
-```bash
-
-tar -xf assets.tar.gz
-
-```
-
-This contains models for French.
-You can download ccnet models for other languages using:
+You can also download ccnet models using:
 ```
 cd assets/ccnet_models/
 wget http://dl.fbaipublicfiles.com/cc_net/lm/$(lang).arpa.bin
 wget http://dl.fbaipublicfiles.com/cc_net/lm/$(lang).sp.model
 ```
 where `$(lang)` is the language code (e.g. `en` for English).
+
+The fasttext language identification model can be downloaded from https://dl.fbaipublicfiles.com/fasttext/supervised-models/lid.176.bin and placed in `assets/fasttext/lid.176.bin`.
 
 ## Processing Steps
 
@@ -106,11 +101,7 @@ python ${CODE_DIR}/Lucie-dataset-filtering/src/blmrdata/utils/redpajama/exact_de
 --custom-dataset \ # If the dataset is not redpajamaV2
 ```
 
-### 3 - Near deduplication
-
-% TODO
-
-### 4 - Filtering
+### 3 - Filtering
 
 You can filter by implementing your own filter functions based on quality signals.
 An example of the Gopher filter is provided in the description of the RedPajamaV2 dataset on huggingface. https://huggingface.co/datasets/togethercomputer/RedPajama-Data-V2.
